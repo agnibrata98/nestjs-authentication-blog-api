@@ -16,10 +16,12 @@ export class BlogService {
     async createBlog(
         createBlogDto: CreateBlogDto,
         authorId: string,
+        image?: string,
     ) {
         const blog = await this.blogModel.create({
             ...createBlogDto,
             authorId: new Types.ObjectId(authorId),
+            image
         });
 
         return blog;
@@ -50,7 +52,8 @@ export class BlogService {
     async updateBlog(
         blogId: string,
         updateBlogDto: UpdateBlogDto,
-        userId: string,
+        user: { userId: string; role: string },
+        image?: string,
     ) {
         const blog = await this.blogModel.findById(blogId);
 
@@ -58,25 +61,38 @@ export class BlogService {
             throw new NotFoundException('Blog not found');
         }
 
-        if (blog.authorId.toString() !== userId) {
+        // USER must own the blog
+        // ADMIN can update any blog
+        if (
+            blog.authorId.toString() !== user.userId &&
+            user.role !== 'admin'
+        ) {
             throw new ForbiddenException(
                 'You are not allowed to update this blog',
             );
         }
 
         Object.assign(blog, updateBlogDto);
+        if (image) {
+            blog.image = image;
+        }
         return blog.save();
     }
 
     // 🔹 Delete blog (only owner)
-    async deleteBlog(blogId: string, userId: string) {
+    async deleteBlog(blogId: string, user: { userId: string; role: string }) {
         const blog = await this.blogModel.findById(blogId);
 
         if (!blog) {
             throw new NotFoundException('Blog not found');
         }
 
-        if (blog.authorId.toString() !== userId) {
+        // USER must own
+        // ADMIN can delete any
+        if (
+            blog.authorId.toString() !== user.userId &&
+            user.role !== 'admin'
+        ) {
             throw new ForbiddenException(
                 'You are not allowed to delete this blog',
             );
