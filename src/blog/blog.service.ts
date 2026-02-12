@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Blog } from './schema/blog.schema';
 import { Model, Types } from 'mongoose';
@@ -37,6 +37,9 @@ export class BlogService {
 
     // 🔹 Get single blog by ID
     async getBlogById(blogId: string) {
+        if (!blogId) {
+            throw new BadRequestException("Invalid blog id")
+        }
         const blog = await this.blogModel
             .findById(blogId)
             .populate('authorId', 'name email');

@@ -6,6 +6,8 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { Response } from 'express';
+
 
 @Injectable()
 export class AuthService {
@@ -15,7 +17,7 @@ export class AuthService {
         const hash = await bcrypt.hash(user.password, 10);
         const existingUser = await this.userModel.findOne({ email: user.email });
         if (existingUser) {
-            return new UnauthorizedException('User already exists');
+            throw new UnauthorizedException('User already exists');
         }
         const newUser = new this.userModel({
             name: user.name,
@@ -25,22 +27,30 @@ export class AuthService {
         return newUser.save();
     }
 
-    async login(user: LoginDto) {
+    async login(user: LoginDto, res: Response) {
         const existingUser = await this.userModel.findOne({ email: user.email });
 
         if (!existingUser) {
-            return new UnauthorizedException('Invalid email');
+            throw new UnauthorizedException('Invalid email');
         }
 
         const isPasswordValid = await bcrypt.compare(user.password, existingUser.password);
 
         if (!isPasswordValid) {
-            return new UnauthorizedException('Invalid password');
+            throw new UnauthorizedException('Invalid password');
         }
 
         const payload = { sub: existingUser._id, email: existingUser.email, name: existingUser.name, role: existingUser.role, };
 
         const token = this.jwtService.sign(payload);
+
+        // ✅ Set HttpOnly Cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: false, // true in production (HTTPS)
+            sameSite: 'lax',
+            maxAge: 1000 * 60 * 60 * 24, // 1 day
+        });
 
         return {
             access_token: token,
@@ -48,12 +58,13 @@ export class AuthService {
                 id: existingUser._id,
                 name: existingUser.name,
                 email: existingUser.email,
+                role: existingUser.role
             },
         }
     }
 
     async getUserProfile(userPayload: any) {
-        const user = await this.userModel.findById(userPayload.userId).select('name email');
+        const user = await this.userModel.findById(userPayload.userId).select('name email role');
 
         if (!user) {
             throw new NotFoundException('User not found');
@@ -63,6 +74,7 @@ export class AuthService {
             id: user._id,
             name: user.name,
             email: user.email,
+            role: user.role,
         };
     }
 }

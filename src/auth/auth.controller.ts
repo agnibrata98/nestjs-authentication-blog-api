@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Request, Res, UseGuards } from '@nestjs/common';
+import { Response as ExpressResponse } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -24,8 +25,8 @@ export class AuthController {
     @ApiOperation({ summary: 'Login user and get JWT token' })
     @ApiResponse({ status: 200, description: 'Login successful' })
     @ApiResponse({ status: 401, description: 'Invalid credentials' })
-    login(@Body() loginDto: LoginDto) {
-        return this.authService.login(loginDto);
+    login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: ExpressResponse,) {
+        return this.authService.login(loginDto, res);
     }
 
 
@@ -39,5 +40,11 @@ export class AuthController {
     getUserProfile(@Request() req) {
         // return req.user;     // for simpler version(without the service layer)
         return this.authService.getUserProfile(req.user);   // with the service layer
+    }
+
+    @Post('logout')
+    logout(@Res({ passthrough: true }) res: ExpressResponse) {
+        res.clearCookie('token');
+        return { message: 'Logged out successfully' };
     }
 }
